@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+              "http://mybatis.org/dtd/mybatis-3-mapper.dtd"> 
+
+<!-- SQL ?에 값 넣는법 #{ID} -->
+<mapper namespace="com.pknu.bbs.dao.BBSDao">	
+
+	<select id="getArticleCount" resultType="int">
+		SELECT COUNT(*) FROM BBS
+	</select>
+	
+	<select id="getArticles" parameterType="HashMap"  resultType="article">
+		SELECT articleNum,id,REGEXP_REPLACE(title, <![CDATA['<[^>]*>|\&([^;])*;']]>,'') title,depth,hit,to_char(writeDate) as writeDate,fileStatus 
+		,(SELECT COUNT(*) FROM COMMENTS C WHERE C.ARTICLENUM=K.ARTICLENUM)commentCount 
+		FROM(SELECT ROWNUM RM, lands.* FROM (SELECT * 
+											  FROM BBS 
+											  ORDER BY groupId DESC, POS)lands)K 
+		WHERE RM BETWEEN #{startRow} AND #{endRow}
+	</select>
+	
+	<select id="getMasterArticles" parameterType="HashMap" resultType="article">
+		SELECT articleNum,id,REGEXP_REPLACE(title, <![CDATA['<[^>]*>|\&([^;])*;']]>,'') title,depth,hit,to_char(writeDate) as writeDate,fileStatus 
+		,(SELECT COUNT(*) FROM COMMENTS C WHERE C.ARTICLENUM=K.ARTICLENUM)commentCount 
+		FROM(SELECT ROWNUM RM, lands.* FROM (SELECT * 
+											  FROM BBS 
+											  ORDER BY groupId DESC, POS)lands)K 
+		WHERE id like 'master' AND RM BETWEEN #{startRow} AND #{endRow}
+	</select>
+	
+	<select id="loginCheck" parameterType="String" resultType="String">
+		SELECT PASS 
+		FROM LOGIN 
+		WHERE ID= #{id}
+	</select>
+	
+	
+	<select id="getNextArticleNum" resultType="int">
+		SELECT BBS_SEQ.NEXTVAL
+		FROM DUAL
+	</select>
+			
+	<insert id="insertArticle" parameterType="fileDto">
+		INSERT INTO BBS 
+		VALUES(
+		
+<!--  	동적SQL(성능 저하 유발 가능함)을 안쓰기 위해 위에 getNextArticleNum을 이용해서 articleNum을 지정해줌  -->
+		<if test="articleNum == 0">
+		BBS_SEQ.NEXTVAL
+		</if>
+		<if test="articleNum != 0">
+			#{articleNum}
+		</if>
+		
+		,#{id},#{title},#{content},0,0,
+		
+		<if test="articleNum == 0">
+		BBS_SEQ.CURRVAL
+		</if>
+		
+		<if test="articleNum != 0">
+		#{articleNum}
+		</if>
+		
+		,0,SYSDATE,#{fileStatus}) 
+	</insert>
+	
+	
+	<insert id="replyArticle" parameterType="article">
+		INSERT INTO BBS 
+		VALUES(
+<!--  		파일 업로드가 없을시  -->
+		<if test="articleNum == 0">
+			BBS_SEQ.NEXTVAL
+		
+		</if>
+		<if test="articleNum != 0">
+			#{articleNum}
+		</if>
+		
+		,#{id},#{title},#{content},#{depth}+1,0,#{groupId},#{pos}+1,SYSDATE,#{fileStatus})
+	</insert>
+	
+	<update id="upPos" parameterType="article">
+		UPDATE BBS
+		SET POS = POS + 1
+		WHERE groupId=#{groupId} and pos>#{pos}
+	</update>
+	
+	<select id="getArticle" parameterType="int" resultType="article">
+		SELECT articleNum, id, REGEXP_REPLACE(title, <![CDATA['<[^>]*>|\&([^;])*;']]>,'')title, content, depth, hit, groupid, pos, writedate, filestatus
+		FROM BBS 
+		WHERE articleNum=#{articleNum}
+	</select>
+	
+	
+	<select id="getFiles" parameterType="int" resultType="fileDto">
+		SELECT FILENUM, ORIGINFNAME, STOREDFNAME
+		FROM FILELIST
+		WHERE ARTICLENUM = #{aritcleNum}
+	</select>
+	
+	
+	
+	
+	<update id="getHit" parameterType="int">
+		UPDATE BBS SET HIT=HIT+1 WHERE ARTICLENUM=#{articleNum}
+	</update>
+	
+	
+	
+	
+	<insert id="insertFile" parameterType="fileDto">
+		INSERT INTO FILELIST
+		VALUES(FILE_SEQ.NEXTVAL,#{originFname},#{storedFname},#{fileLength},#{articleNum})
+	</insert>
+	
+	
+	
+	
+	<!-- 	복수개의 업로드된 파일도 글번호에 따라 다 지워준다 -->
+	<select id="deleteFile" parameterType="int" resultType="String">
+		DELETE
+		FROM FILELIST
+		WHERE ARTICLENUM=#{articleNum}
+	</select>
+	<delete id="deleteArticle" parameterType="int">
+		DELETE
+		FROM BBS
+		WHERE ARTICLENUM=#{articleNum}
+	</delete>
+	
+	
+	<delete id="updateAllDelFile" parameterType="int">
+		DELETE
+		FROM FILELIST
+		WHERE ARTICLENUM=#{articleNum}
+	</delete>
+	
+	
+<!--  	업로드가 없을 경우 -->
+	<select id="getUpdateArticle" parameterType="int" resultType="article">
+		SELECT TITLE,CONTENT 
+		FROM BBS 
+		WHERE ARTICLENUM=#{articleNum} 
+	</select>
+	
+
+	
+	<delete id="someDelFile" parameterType="List">
+		DELETE
+		FROM FILELIST
+		<!-- IN << query문 공부 -->
+		WHERE FILENUM IN
+		<foreach collection="list" item="fileNum" open="(" separator="," close=")">
+			#{fileNum}
+		</foreach>
+	</delete>
+	
+<!-- 	<select id="getUpdateFileArticle" parameterType="int" resultType="contentArticle"> -->
+<!-- 		SELECT B.TITLE, B.CONTENT, F.ORIGINFNAME -->
+<!-- 		FROM BBS B, FILELIST F -->
+<!-- 		WHERE B.ARTICLENUM=#{articleNum} AND B.ARTICLENUM = F.ARTICLENUM -->
+<!-- 	</select> -->
+	
+	
+	<update id="updateArticle" parameterType="article">
+		UPDATE BBS
+		SET TITLE = #{title}, CONTENT = #{content}, FILESTATUS = #{fileStatus}
+		WHERE ARTICLENUM = #{articleNum}
+	</update>
+	
+	<select id="updateSomeDelFile" parameterType="int" resultType="String">
+		SELECT STOREDFNAME
+		FROM FILELIST
+		WHERE FILENUM=#{fileNum}
+	</select>
+	
+	<select id="getFileListCount" parameterType="int" resultType="int">
+	     select count(*)
+	     from fileList
+	     where articleNum=#{articleNum}
+	</select>
+	
+<!-- 	<update id="updateFileArticle" parameterType="contentArticle"> -->
+<!-- 		UPDATE FILELIST -->
+<!-- 		SET ORIGINFNAME = #{originFname}, STOREDFNAME = #{storedFname}, -->
+<!-- 			FILELENGTH = #{fileLength} -->
+<!-- 		WHERE ARTICLENUM = #{articleNum} -->
+<!-- 	</update> -->
+	
+<!-- 	<select id="delFile" parameterType="int" resultType="String"> -->
+<!-- 		SELECT STOREDFNAME -->
+<!-- 		FROM FILELIST -->
+<!-- 		WHERE ARTICLENUM = #{articleNum} -->
+<!-- 	</select> -->
+	
+	<select id="getCommentCount" parameterType="int" resultType="int">
+		SELECT COUNT(*)
+		FROM COMMENTS
+		WHERE ARTICLENUM = #{articleNum}
+	</select>
+	
+</mapper>
+	

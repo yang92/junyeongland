@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:jee="http://www.springframework.org/schema/jee"
+	xsi:schemaLocation="http://www.springframework.org/schema/jee http://www.springframework.org/schema/jee/spring-jee-3.2.xsd
+		http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.2.xsd">
+	
+	<!-- Root Context: defines shared resources visible to all other web components -->
+
+
+<!-- 	<bean class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer" id="propertyConfigurer"> -->
+<!-- 		<property name="location" value="classpath:db.properties"/> -->
+<!-- 	</bean> -->
+	
+<!-- 		커넥션 풀을 지원하려면 dbcp2에 있는 BasicDataSource 클래스를 써야한다 -->
+<!--	 bean 태그에 속성값으로 바로 줄 수도 있다 -->
+		
+<!-- 		<bean id="dataSource" class="org.apache.tomcat.dbcp.dbcp2.BasicDataSource"> -->
+<!-- 			<property name="driverClassName" value="${driver}"/> -->
+<!-- 			<property name="url" value="${url}"/> -->
+<!-- 			<property name="username" value="${username}"/> -->
+<!-- 			<property name="password" value="${password}"/> -->
+		
+<!-- 		</bean> -->
+<!-- 		Tomcat7버전은 패키지명이 다르다 -->
+<!-- 		<bean id="dataSource" class="org.apache.tomcat.dbcp.dbcp.BasicDataSource"> -->
+
+
+<!-- 커넥션 풀 사용 -->
+<!-- 	<bean id="dataSource" class="org.springframework.jndi.JndiObjectFactoryBean"> -->
+<!-- 		<property name="jndiName" value="java:comp/env/pknu"></property> -->
+<!-- 		<property name="resourceRef" value="true"></property> -->
+	
+<!-- 	</bean> -->
+	
+	<jee:jndi-lookup id="dataSource" jndi-name="pknu" resource-ref="true" />
+
+
+<!-- Mybatis 설정 -->
+		<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+			<property name="configLocation" value="classpath:/mybatisConfig/mybatisMapperConfig.xml"/>
+			<property name="dataSource" ref="dataSource"/>
+		</bean>
+		
+		<bean id="sqlSessionTemplate" class="org.mybatis.spring.SqlSessionTemplate">
+			<constructor-arg ref="sqlSessionFactory"/>
+		</bean>
+
+
+		<bean id="saveDir" class="java.lang.String">
+			<constructor-arg value="d:\upload\"/>
+		</bean>
+		
+		
+<!-- 		MapperFactoryBean에서 mapper파일과 연결 시켜 준다 -->
+		<bean class="org.mybatis.spring.mapper.MapperFactoryBean" id="bbsDao">
+			<property value="com.pknu.bbs.dao.BBSDao" name="mapperInterface"/>
+			<property name="sqlSessionTemplate" ref="sqlSessionTemplate"/>
+		</bean>
+		
+		<bean class="org.mybatis.spring.mapper.MapperFactoryBean" id="commentDao">
+			<property value="com.pknu.comment.dao.CommentDao" name="mapperInterface"/>
+			<property name="sqlSessionTemplate" ref="sqlSessionTemplate"/>
+		</bean>
+		
+		
+		
+</beans>
